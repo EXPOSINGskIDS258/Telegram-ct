@@ -1,0 +1,6 @@
+2025-05-17 21:35:12,434 - config - INFO - No config file found. Using default values.
+2025-05-17 21:37:18,701 - config - INFO - No config file found. Using default values.
+2025-05-17 21:41:22,174 - config - INFO - No config file found. Using default values.
+2025-05-17 21:47:35,926 - config - INFO - No config file found. Using default values.
+2025-05-17 22:06:54,990 - config - INFO - No config file found. Using default values.
+2025-05-17 22:48:54,382 - __main__ - ERROR - Fatal error: could not convert string to float: '5,000'
