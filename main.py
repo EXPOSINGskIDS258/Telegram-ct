@@ -346,6 +346,28 @@ def get_wallet_private_key():
         'private_key': private_key
     }
 
+# Helper function to safely parse numeric inputs
+def parse_float(value, default=None):
+    """
+    Safely parse a string to float, handling commas and percentage signs in the input.
+    Returns the default value if parsing fails.
+    """
+    if not value:
+        return default
+        
+    try:
+        # First, remove any percentage sign if it exists
+        if "%" in value:
+            value = value.replace("%", "")
+            
+        # Remove commas and any other non-numeric characters except decimal point
+        cleaned_value = ''.join(c for c in value if c.isdigit() or c == '.')
+        
+        return float(cleaned_value)
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Error parsing float value '{value}': {str(e)}")
+        return default
+
 def configure_paper_trading():
     """Configure paper trading settings"""
     clear_screen()
@@ -360,11 +382,11 @@ def configure_paper_trading():
     
     # Get initial balance
     initial_balance = display_input_field("Initial Virtual Balance (USD, default: $10,000)", width=70)
-    initial_balance = float(initial_balance) if initial_balance else 10000.0
+    initial_balance = parse_float(initial_balance, 10000.0)
     
     # Get simulated fees
     fee_percentage = display_input_field("Simulated Trading Fee (%, default: 0.25%)", width=70)
-    fee_percentage = float(fee_percentage) if fee_percentage else 0.25
+    fee_percentage = parse_float(fee_percentage, 0.25)
     
     # Get simulated slippage range
     slippage_range = display_input_field("Simulated Slippage Range (%, default: 0.1-3%)", width=70)
@@ -405,7 +427,7 @@ async def configure_trading_parameters():
     print("POSITION SIZING".center(76))
     print("─" * 76)
     position_size = display_input_field("Position Size (% of portfolio per trade, default 3%)", width=70)
-    parameters['position_size'] = float(position_size) if position_size else 3.0
+    parameters['position_size'] = parse_float(position_size, 3.0)
     
     # Risk management
     print("\n" + "─" * 76)
@@ -413,10 +435,10 @@ async def configure_trading_parameters():
     print("─" * 76)
     
     initial_sl = display_input_field("Initial Stop Loss (%, default 30%)", width=70)
-    parameters['initial_sl'] = float(initial_sl) if initial_sl else 30.0
+    parameters['initial_sl'] = parse_float(initial_sl, 30.0)
     
     trail_percent = display_input_field("Trailing Stop (%, default 5%)", width=70)
-    parameters['trail_percent'] = float(trail_percent) if trail_percent else 5.0
+    parameters['trail_percent'] = parse_float(trail_percent, 5.0)
     
     take_profit = display_input_field("Take Profit Levels (comma-separated %, default 20,40,100)", width=70)
     parameters['take_profit_levels'] = take_profit if take_profit else "20,40,100"
@@ -427,10 +449,10 @@ async def configure_trading_parameters():
     print("─" * 76)
     
     max_slippage = display_input_field("Maximum Slippage (%, default 15%)", width=70)
-    parameters['max_slippage'] = float(max_slippage) if max_slippage else 15.0
+    parameters['max_slippage'] = parse_float(max_slippage, 15.0)
     
     gas_priority = display_input_field("Gas Priority (1-5, where 5 is fastest, default 3)", width=70)
-    parameters['gas_priority'] = int(gas_priority) if gas_priority else 3
+    parameters['gas_priority'] = int(parse_float(gas_priority, 3))
     
     # Memecoin-specific settings
     print("\n" + "─" * 76)
@@ -438,89 +460,371 @@ async def configure_trading_parameters():
     print("─" * 76)
     
     min_liquidity = display_input_field("Minimum Liquidity in USD (default 50000)", width=70)
-    parameters['min_liquidity'] = float(min_liquidity) if min_liquidity else 50000
+    parameters['min_liquidity'] = parse_float(min_liquidity, 50000)
     
     max_buy_tax = display_input_field("Maximum Buy Tax (%, default 10%)", width=70)
-    parameters['max_buy_tax'] = float(max_buy_tax) if max_buy_tax else 10.0
+    parameters['max_buy_tax'] = parse_float(max_buy_tax, 10.0)
     
     max_sell_tax = display_input_field("Maximum Sell Tax (%, default 15%)", width=70)
-    parameters['max_sell_tax'] = float(max_sell_tax) if max_sell_tax else 15.0
+    parameters['max_sell_tax'] = parse_float(max_sell_tax, 15.0)
     
     honeypot_check = display_input_field("Enable Honeypot Check? (y/n, default y)", width=70)
     parameters['honeypot_check'] = honeypot_check.lower() != 'n'
     
     return parameters
 
-async def display_paper_trading_dashboard(paper_trader):
-    """Display paper trading dashboard with performance metrics"""
+async def display_paper_trading_dashboard(paper_trader, bot_state=None):
+    """Display paper trading dashboard with performance metrics and interactive controls"""
+    if bot_state is None:
+        bot_state = {
+            'paused': False,
+            'auto_execution': True
+        }
+    
+    while True:
+        clear_screen()
+        display_stratos_logo()
+        
+        # Get account summary and open positions
+        summary = paper_trader.get_account_summary()
+        positions = paper_trader.get_open_positions()
+        
+        # Display account overview with status indicators
+        status = "PAUSED" if bot_state['paused'] else "ACTIVE"
+        execution_mode = "AUTO" if bot_state['auto_execution'] else "MANUAL"
+        title = f"PAPER TRADING DASHBOARD | STATUS: {status} | MODE: {execution_mode}"
+        display_premium_frame(title, width=76)
+        
+        # Account balance section
+        print("\n" + "─" * 76)
+        print("ACCOUNT OVERVIEW".center(76))
+        print("─" * 76 + "\n")
+        
+        print(f"  Virtual Balance:      ${summary['virtual_balance']:.2f}")
+        print(f"  Open Positions Value: ${summary['open_positions_value']:.2f}")
+        print(f"  Total Account Value:  ${summary['total_value']:.2f}")
+        print(f"  Total Profit/Loss:    ${summary['total_profit_loss']:.2f}")
+        
+        # Performance metrics
+        print("\n" + "─" * 76)
+        print("PERFORMANCE METRICS".center(76))
+        print("─" * 76 + "\n")
+        
+        print(f"  Win Rate:             {summary['win_rate']:.2f}%")
+        print(f"  Total Trades:         {summary['total_trades']}")
+        print(f"  Winning Trades:       {summary['win_trades']}")
+        print(f"  Losing Trades:        {summary['loss_trades']}")
+        print(f"  Days Trading:         {summary['days_running']:.1f}")
+        
+        # Open positions
+        print("\n" + "─" * 76)
+        print(f"OPEN POSITIONS ({len(positions)})".center(76))
+        print("─" * 76 + "\n")
+        
+        if positions:
+            # Header
+            print(f"  {'ID':<4} {'Symbol':<8} {'Entry':<10} {'Current':<10} {'Amount':<12} {'Value':<10} {'P/L %':<8}")
+            print("  " + "-" * 70)
+            
+            # List positions
+            for i, pos in enumerate(positions, 1):
+                pnl_str = f"{pos['pnl_percentage']:.2f}%"
+                if pos['pnl_percentage'] > 0:
+                    pnl_str = "+" + pnl_str
+                    
+                print(f"  {i:<4} {pos['symbol']:<8} ${pos['entry_price']:<9.6f} ${pos['current_price']:<9.6f} " + 
+                    f"{pos['amount']:<12.4f} ${pos['value_usd']:<9.2f} {pnl_str:<8}")
+        else:
+            print("  No open positions")
+        
+        # Interactive Controls
+        print("\n" + "─" * 76)
+        print("INTERACTIVE CONTROLS".center(76))
+        print("─" * 76 + "\n")
+        
+        # Primary Controls - First Row
+        print("  [1] Close All Positions     [2] " + ("Resume Bot" if bot_state['paused'] else "Pause Bot") + 
+              "     [3] " + ("Enable Auto-Execution" if not bot_state['auto_execution'] else "Disable Auto-Execution"))
+        
+        # Secondary Controls - Second Row
+        print("  [4] Reset Virtual Account   [5] Reset Stats             [6] Modify Trading Parameters")
+        
+        # Additional Controls - Third Row
+        print("  [7] View Trade History      [8] Close Specific Position [9] View Signal Log")
+        
+        # Exit option
+        print("\n  [0] Refresh Dashboard        [Q] Exit Dashboard")
+        
+        # Get user command
+        print("\n  Enter command:")
+        command = input("  ⮞ ").strip()
+        
+        # Process command
+        if command.lower() == 'q':
+            return
+        
+        await process_dashboard_command(command, paper_trader, bot_state)
+
+
+async def process_dashboard_command(command, paper_trader, bot_state):
+    """Process dashboard command entered by the user"""
+    try:
+        # Convert to lowercase for case-insensitive comparison
+        cmd = command.lower().strip()
+        
+        if cmd == '1':  # Close All Positions
+            if not paper_trader.get_open_positions():
+                await display_command_result("No open positions to close.")
+                return
+                
+            # Ask for confirmation
+            confirm = input("  ⚠️ Confirm closing ALL positions (y/n): ").lower()
+            if confirm == 'y':
+                for pos in paper_trader.get_open_positions():
+                    await paper_trader.close_paper_position(pos['symbol'], 'manual_close')
+                await display_command_result("✅ All positions closed successfully.")
+            else:
+                await display_command_result("Operation cancelled.")
+                
+        elif cmd == '2':  # Pause/Resume Bot
+            bot_state['paused'] = not bot_state['paused']
+            status = "paused" if bot_state['paused'] else "resumed"
+            await display_command_result(f"✅ Bot {status} successfully.")
+            
+        elif cmd == '3':  # Toggle Auto-Execution
+            bot_state['auto_execution'] = not bot_state['auto_execution']
+            mode = "AUTO" if bot_state['auto_execution'] else "MANUAL"
+            await display_command_result(f"✅ Execution mode set to {mode}.")
+            
+        elif cmd == '4':  # Reset Virtual Account
+            # Ask for confirmation
+            confirm = input("  ⚠️ This will reset your account balance and positions. Confirm (y/n): ").lower()
+            if confirm == 'y':
+                initial_balance = input("  Enter new initial balance (default: 10000): ")
+                initial_balance = parse_float(initial_balance, 10000.0)
+                paper_trader.reset_account(initial_balance)
+                await display_command_result(f"✅ Account reset with ${initial_balance:.2f} balance.")
+            else:
+                await display_command_result("Operation cancelled.")
+                
+        elif cmd == '5':  # Reset Stats
+            # Ask for confirmation
+            confirm = input("  ⚠️ This will reset your trading statistics. Confirm (y/n): ").lower()
+            if confirm == 'y':
+                # Reset stats while keeping positions and balance
+                paper_trader.reset_stats()
+                await display_command_result("✅ Trading statistics reset successfully.")
+            else:
+                await display_command_result("Operation cancelled.")
+                
+        elif cmd == '6':  # Modify Trading Parameters
+            await modify_trading_parameters(paper_trader)
+            
+        elif cmd == '7':  # View Trade History
+            await view_trade_history(paper_trader)
+            
+        elif cmd == '8':  # Close Specific Position
+            await close_specific_position(paper_trader)
+            
+        elif cmd == '9':  # View Signal Log
+            await view_signal_log(paper_trader)
+            
+        elif cmd == '0':  # Refresh Dashboard
+            # Just return to refresh
+            return
+            
+        else:
+            await display_command_result("Invalid command. Please try again.")
+            
+    except Exception as e:
+        logger.error(f"Error processing command: {str(e)}")
+        await display_command_result(f"❌ Error: {str(e)}")
+
+async def display_command_result(message, wait_time=1.5):
+    """Display the result of a command with a styled message"""
+    print("\n  " + "─" * 74)
+    print(f"  {message}")
+    print("  " + "─" * 74)
+    await asyncio.sleep(wait_time)  # Short pause to show the message
+
+async def modify_trading_parameters(paper_trader):
+    """Allow users to modify trading parameters"""
     clear_screen()
     display_stratos_logo()
     
-    # Get account summary and open positions
-    summary = paper_trader.get_account_summary()
+    display_premium_frame("MODIFY TRADING PARAMETERS", width=76)
+    
+    print("""
+  Update your trading parameters. Press Enter to keep current values.
+    """)
+    
+    # Get current parameters
+    params = paper_trader.get_trading_parameters()
+    
+    # Position size
+    print("\n" + "─" * 76)
+    print("POSITION SIZING".center(76))
+    print("─" * 76)
+    position_size = display_input_field(f"Position Size (% of portfolio per trade, current: {params['position_size']}%)", width=70)
+    if position_size:
+        params['position_size'] = parse_float(position_size, params['position_size'])
+    
+    # Risk management
+    print("\n" + "─" * 76)
+    print("RISK MANAGEMENT".center(76))
+    print("─" * 76)
+    
+    initial_sl = display_input_field(f"Initial Stop Loss (%, current: {params['initial_sl']}%)", width=70)
+    if initial_sl:
+        params['initial_sl'] = parse_float(initial_sl, params['initial_sl'])
+    
+    trail_percent = display_input_field(f"Trailing Stop (%, current: {params['trail_percent']}%)", width=70)
+    if trail_percent:
+        params['trail_percent'] = parse_float(trail_percent, params['trail_percent'])
+    
+    take_profit = display_input_field(f"Take Profit Levels (comma-separated %, current: {params['take_profit_levels']})", width=70)
+    if take_profit:
+        params['take_profit_levels'] = take_profit
+        
+    # Save parameters
+    paper_trader.update_trading_parameters(params)
+    
+    display_notification("Trading parameters updated successfully", "success")
+    await asyncio.sleep(1.5)  # Short pause to show the message
+
+async def view_trade_history(paper_trader):
+    """Display trade history in a paginated view"""
+    page = 0
+    page_size = 10
+    
+    while True:
+        clear_screen()
+        display_stratos_logo()
+        
+        # Get trade history with pagination
+        history = paper_trader.get_trade_history(limit=page_size, offset=page*page_size)
+        total_pages = (history['total'] + page_size - 1) // page_size
+        
+        display_premium_frame(f"TRADE HISTORY (Page {page+1}/{max(1, total_pages)})", width=76)
+        
+        if not history['trades']:
+            print("\n  No trade history found.")
+        else:
+            # Header
+            print(f"\n  {'Type':<6} {'Symbol':<8} {'Entry':<10} {'Exit':<10} {'Amount':<10} {'P/L':<10} {'Date':<16}")
+            print("  " + "-" * 70)
+            
+            # List trades
+            for trade in history['trades']:
+                trade_type = trade.get('type', 'buy').upper()
+                symbol = trade.get('token_name', '')[:8]
+                entry_price = trade.get('entry_price', 0)
+                exit_price = trade.get('exit_price', 0)
+                amount = trade.get('amount', 0)
+                
+                # Calculate P/L
+                pnl = "N/A"
+                if 'realized_pnl' in trade:
+                    pnl = f"{trade['pnl_percentage']:.2f}%"
+                    if trade['realized_pnl'] > 0:
+                        pnl = "+" + pnl
+                
+                # Format date
+                date = "N/A"
+                if 'entry_time' in trade:
+                    entry_date = time.strftime('%Y-%m-%d %H:%M', time.localtime(trade['entry_time']))
+                    date = entry_date
+                
+                print(f"  {trade_type:<6} {symbol:<8} ${entry_price:<9.6f} ${exit_price:<9.6f} " + 
+                      f"{amount:<10.2f} {pnl:<10} {date:<16}")
+        
+        # Pagination controls
+        print("\n" + "─" * 76)
+        print("NAVIGATION".center(76))
+        print("─" * 76 + "\n")
+        
+        print("  [P] Previous Page    [N] Next Page    [Q] Back to Dashboard")
+        print("\n  Enter command:")
+        
+        cmd = input("  ⮞ ").lower().strip()
+        
+        if cmd == 'p' and page > 0:
+            page -= 1
+        elif cmd == 'n' and page < total_pages - 1:
+            page += 1
+        elif cmd == 'q':
+            break
+
+async def close_specific_position(paper_trader):
+    """Allow user to close a specific position"""
     positions = paper_trader.get_open_positions()
     
-    # Display account overview
-    display_premium_frame("PAPER TRADING DASHBOARD", width=76)
-    
-    # Account balance section
-    print("\n" + "─" * 76)
-    print("ACCOUNT OVERVIEW".center(76))
-    print("─" * 76 + "\n")
-    
-    print(f"  Virtual Balance:      ${summary['virtual_balance']:.2f}")
-    print(f"  Open Positions Value: ${summary['open_positions_value']:.2f}")
-    print(f"  Total Account Value:  ${summary['total_value']:.2f}")
-    print(f"  Total Profit/Loss:    ${summary['total_profit_loss']:.2f}")
-    
-    # Performance metrics
-    print("\n" + "─" * 76)
-    print("PERFORMANCE METRICS".center(76))
-    print("─" * 76 + "\n")
-    
-    print(f"  Win Rate:             {summary['win_rate']:.2f}%")
-    print(f"  Total Trades:         {summary['total_trades']}")
-    print(f"  Winning Trades:       {summary['win_trades']}")
-    print(f"  Losing Trades:        {summary['loss_trades']}")
-    print(f"  Days Trading:         {summary['days_running']:.1f}")
-    
-    # Open positions
-    print("\n" + "─" * 76)
-    print(f"OPEN POSITIONS ({len(positions)})".center(76))
-    print("─" * 76 + "\n")
-    
-    if positions:
-        # Header
-        print(f"  {'Symbol':<8} {'Entry':<10} {'Current':<10} {'Amount':<12} {'Value':<10} {'P/L %':<8}")
-        print("  " + "-" * 70)
-        
-        # List positions
-        for pos in positions:
-            pnl_str = f"{pos['pnl_percentage']:.2f}%"
-            if pos['pnl_percentage'] > 0:
-                pnl_str = "+" + pnl_str
-                
-            print(f"  {pos['symbol']:<8} ${pos['entry_price']:<9.6f} ${pos['current_price']:<9.6f} " + 
-                  f"{pos['amount']:<12.4f} ${pos['value_usd']:<9.2f} {pnl_str:<8}")
-    else:
-        print("  No open positions")
-    
-    # Controls
-    print("\n" + "─" * 76)
-    print("CONTROLS".center(76))
-    print("─" * 76 + "\n")
-    
-    print("  Bot is now monitoring channels for trading signals.")
-    print("  All signals will be traded using your paper trading account.")
-    print("  Press Ctrl+C to exit.")
-    
-    # Wait for user input or Ctrl+C
-    try:
-        while True:
-            await asyncio.sleep(60)  # Refresh every 60 seconds
-            await display_paper_trading_dashboard(paper_trader)
-    except KeyboardInterrupt:
+    if not positions:
+        await display_command_result("No open positions to close.")
         return
+    
+    clear_screen()
+    display_stratos_logo()
+    
+    display_premium_frame("CLOSE SPECIFIC POSITION", width=76)
+    
+    # List positions
+    print(f"\n  {'ID':<4} {'Symbol':<8} {'Entry':<10} {'Current':<10} {'Amount':<12} {'Value':<10} {'P/L %':<8}")
+    print("  " + "-" * 70)
+    
+    for i, pos in enumerate(positions, 1):
+        pnl_str = f"{pos['pnl_percentage']:.2f}%"
+        if pos['pnl_percentage'] > 0:
+            pnl_str = "+" + pnl_str
+            
+        print(f"  {i:<4} {pos['symbol']:<8} ${pos['entry_price']:<9.6f} ${pos['current_price']:<9.6f} " + 
+              f"{pos['amount']:<12.4f} ${pos['value_usd']:<9.2f} {pnl_str:<8}")
+    
+    # Get position ID to close
+    print("\n  Enter position ID to close (or 'Q' to cancel):")
+    pos_id = input("  ⮞ ").strip()
+    
+    if pos_id.lower() == 'q':
+        return
+    
+    try:
+        pos_idx = int(pos_id) - 1
+        if 0 <= pos_idx < len(positions):
+            # Confirm closure
+            symbol = positions[pos_idx]['symbol']
+            confirm = input(f"  ⚠️ Confirm closing position for {symbol} (y/n): ").lower()
+            
+            if confirm == 'y':
+                result = await paper_trader.close_paper_position(symbol, 'manual_close')
+                if result['success']:
+                    await display_command_result(f"✅ Position for {symbol} closed successfully.")
+                else:
+                    await display_command_result(f"❌ Failed to close position: {result['error']}")
+            else:
+                await display_command_result("Operation cancelled.")
+        else:
+            await display_command_result("Invalid position ID.")
+    except (ValueError, IndexError):
+        await display_command_result("Invalid input. Please enter a valid position ID.")
+
+async def view_signal_log(paper_trader):
+    """Display recent trading signals"""
+    # This would need to be implemented based on your signal logging system
+    # For now, just show a placeholder
+    
+    clear_screen()
+    display_stratos_logo()
+    
+    display_premium_frame("SIGNAL LOG", width=76)
+    
+    print("""
+  Signal log functionality will show recent signals detected from Telegram channels.
+  This feature is planned for a future update.
+    """)
+    
+    print("\n  Press any key to return to dashboard...")
+    input("  ⮞ ")
+
 
 async def system_initialization(is_paper_trading=False):
     """Display an impressive system initialization sequence"""
@@ -583,7 +887,146 @@ async def system_initialization(is_paper_trading=False):
 
 async def setup_bot():
     """Setup and configure the bot with premium UI and paper trading support"""
-    # Show logo and disclaimer
+    # Create Config instance first to check for existing settings
+    config = Config()
+    
+    # Show logo and welcome message
+    clear_screen()
+    display_stratos_logo()
+    
+    # Check if we have saved credentials
+    has_saved_settings = config.has_credentials()
+    
+    # Display main menu
+    display_premium_frame("STRATOS TRADING BOT", width=76)
+    
+    print("""
+  Welcome to Stratos Trading Bot!
+  
+  Please select an option to continue:
+    """)
+    
+    print("\n" + "─" * 76)
+    
+    # Build menu options based on whether we have saved settings
+    menu_options = []
+    
+    if has_saved_settings:
+        menu_options.append(("Start Bot with Saved Settings", "continue"))
+    
+    menu_options.extend([
+        ("Configure New Settings", "configure"),
+        ("Edit Settings File Directly", "edit_env"),
+        ("Exit", "exit")
+    ])
+    
+    # Display menu options
+    for i, (option_text, _) in enumerate(menu_options, 1):
+        display_button(f"{i}. {option_text}", selected=(i == 1), width=70)
+        print()
+    
+    print("\n" + "─" * 76)
+    print("  Enter your choice (1-" + str(len(menu_options)) + "):")
+    
+    try:
+        choice = int(input("  ⮞ ").strip())
+        if choice < 1 or choice > len(menu_options):
+            raise ValueError("Invalid choice")
+        selected_action = menu_options[choice-1][1]
+    except ValueError:
+        display_notification("Invalid choice. Exiting...", "error")
+        return
+    
+    # Handle the selected action
+    if selected_action == "exit":
+        clear_screen()
+        display_notification("Exiting Stratos Trading Bot. Goodbye!", "info")
+        return
+    elif selected_action == "edit_env":
+        # Open the .env file in the default text editor
+        from utils import open_env_file
+        
+        clear_screen()
+        display_stratos_logo()
+        display_premium_frame("EDIT SETTINGS FILE", width=76)
+        
+        print("""
+  Opening the settings file in your default text editor.
+  
+  You can directly edit the configuration values in this file.
+  Save the file when you're done, then restart the bot.
+        """)
+        
+        success = open_env_file()
+        
+        if success:
+            print("\n  Settings file opened successfully. Press Enter to exit.")
+        else:
+            print("\n  Error opening settings file. Press Enter to exit.")
+            
+        input("\n  ⮞ ")
+        return
+    elif selected_action == "continue":
+        # Always ask for trading mode, even with saved settings
+        trading_mode = display_trade_mode_selection()
+        is_paper_trading = (trading_mode == 1)
+        
+        # Update the config with the selected mode
+        config.paper_trading_mode = is_paper_trading
+        
+        # For live trading, we MUST verify wallet info
+        if not is_paper_trading:
+            # Check if we have a saved wallet address
+            has_wallet = bool(getattr(config, 'wallet_address', None))
+            
+            # Always get wallet information for live trading
+            wallet_info = get_wallet_private_key()
+            
+            if not wallet_info or not wallet_info['private_key']:
+                clear_screen()
+                display_notification("Wallet information is required for live trading. Setup cancelled.", "error")
+                return
+                
+            # Update wallet info
+            config.wallet_address = wallet_info['wallet_address']
+            config.private_key = wallet_info['private_key']
+            
+            # Save the updated config
+            config.save()
+            display_notification("Live trading settings updated successfully", "success")
+        
+        # Initialize paper trader if in paper trading mode
+        paper_trader = None
+        if is_paper_trading:
+            paper_trader = PaperTrader(config)
+            
+        # Initialize system
+        await system_initialization(is_paper_trading)
+        
+        # In paper trading mode, show the dashboard
+        if is_paper_trading:
+            # Create and start the bot (for signal monitoring)
+            bot = TelegramCopyTrader(config)
+            
+            # Start bot in background task
+            bot_task = asyncio.create_task(bot.start())
+            
+            # Show dashboard (this will block until user exits)
+            await display_paper_trading_dashboard(paper_trader)
+            
+            # When dashboard is closed, stop the bot
+            if bot.running:
+                await bot.stop()
+        else:
+            # Create and start the bot in live trading mode
+            bot = TelegramCopyTrader(config)
+            await bot.start()
+            
+        return
+    
+    # If we get here, user selected "configure" or we have no saved settings
+    
+    # Show disclaimer first
     if not display_disclaimer():
         clear_screen()
         display_notification("Setup cancelled by user. Exiting...", "error")
@@ -612,7 +1055,7 @@ async def setup_bot():
     if is_paper_trading:
         paper_trading_config = configure_paper_trading()
     
-    # Get Telegram API credentials
+    # Get Telegram API credentials - use existing values as defaults if available
     clear_screen()
     display_stratos_logo()
     
@@ -623,9 +1066,23 @@ async def setup_bot():
   You can get these from https://my.telegram.org/apps
     """)
     
-    api_id = display_input_field("Telegram API ID", width=70)
-    api_hash = display_input_field("Telegram API Hash", width=70)
-    phone = display_input_field("Phone Number (with country code)", width=70)
+    # Show existing values as defaults if available
+    default_api_id = str(config.api_id) if config.api_id else ""
+    default_api_hash = config.api_hash or ""
+    default_phone = config.phone or ""
+    
+    api_id_prompt = f"Telegram API ID (default: {default_api_id})" if default_api_id else "Telegram API ID"
+    api_hash_prompt = f"Telegram API Hash (default: {default_api_hash})" if default_api_hash else "Telegram API Hash"
+    phone_prompt = f"Phone Number (with country code) (default: {default_phone})" if default_phone else "Phone Number (with country code)"
+    
+    api_id_input = display_input_field(api_id_prompt, width=70)
+    api_hash_input = display_input_field(api_hash_prompt, width=70)
+    phone_input = display_input_field(phone_prompt, width=70)
+    
+    # Use input values or defaults
+    api_id = api_id_input or default_api_id
+    api_hash = api_hash_input or default_api_hash
+    phone = phone_input or default_phone
     
     if not api_id or not api_hash or not phone:
         clear_screen()
@@ -635,11 +1092,13 @@ async def setup_bot():
     # Configure trading parameters (both modes need this)
     trading_params = await configure_trading_parameters()
     
-    # Create and configure the bot
-    config = Config()
+    # Update config with new values
+    try:
+        config.api_id = int(api_id)
+    except ValueError:
+        display_notification("API ID must be a number. Setup cancelled.", "error")
+        return
     
-    # Save API credentials
-    config.api_id = int(api_id)
     config.api_hash = api_hash
     config.phone = phone
     
@@ -687,9 +1146,9 @@ async def setup_bot():
     # Save paper trading mode in config
     config.paper_trading_mode = is_paper_trading
     
-    # Save configuration
+    # Save configuration (to both config.json and .env)
     config.save()
-    display_notification("Configuration saved successfully", "success")
+    display_notification("Configuration saved successfully. Settings will be remembered for next time.", "success")
     
     # Initialize paper trader if in paper trading mode
     paper_trader = None
@@ -697,7 +1156,7 @@ async def setup_bot():
         paper_trader = PaperTrader(config)
         
         # Reset paper trading data if requested
-        if paper_trading_config and paper_trading_config['reset_existing']:
+        if paper_trading_config and paper_trading_config.get('reset_existing'):
             paper_trader.reset_account(paper_trading_config['initial_balance'])
     
     # Initialize system
@@ -705,7 +1164,18 @@ async def setup_bot():
     
     # In paper trading mode, show the dashboard
     if is_paper_trading:
+        # Create and start the bot (for signal monitoring)
+        bot = TelegramCopyTrader(config)
+        
+        # Start bot in background task
+        bot_task = asyncio.create_task(bot.start())
+        
+        # Show dashboard (this will block until user exits)
         await display_paper_trading_dashboard(paper_trader)
+        
+        # When dashboard is closed, stop the bot
+        if bot.running:
+            await bot.stop()
     else:
         # Create and start the bot in live trading mode
         bot = TelegramCopyTrader(config)

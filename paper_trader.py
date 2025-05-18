@@ -10,6 +10,7 @@ import logging
 import random
 from decimal import Decimal
 import uuid
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +28,23 @@ class PaperTrader:
         self.trade_history = []  # History of all paper trades
         self.started_at = time.time()
         
+        # Trading parameters
+        self.trading_parameters = {
+            'position_size': getattr(self.config, 'position_size_percent', 3.0),
+            'initial_sl': getattr(self.config, 'initial_sl_percent', 30.0),
+            'trail_percent': getattr(self.config, 'trail_percent', 5.0),
+            'take_profit_levels': getattr(self.config, 'take_profit_levels', "20,40,100"),
+            'max_slippage': getattr(self.config, 'max_slippage', 15.0)
+        }
+        
+        # Bot state
+        self.paused = False
+        self.auto_execution = True
+        
         # Load existing paper trading data if available
         self._load_data()
+        
+        logger.info(f"PaperTrader initialized with balance: ${self.virtual_balance:.2f}")
     
     def _load_data(self):
         """Load paper trading data from file"""
@@ -40,6 +56,9 @@ class PaperTrader:
                     self.positions = data.get('positions', {})
                     self.trade_history = data.get('trade_history', [])
                     self.started_at = data.get('started_at', time.time())
+                    self.trading_parameters = data.get('trading_parameters', self.trading_parameters)
+                    self.paused = data.get('paused', False)
+                    self.auto_execution = data.get('auto_execution', True)
                 logger.info(f"Loaded paper trading data - Balance: ${self.virtual_balance:.2f}")
             except Exception as e:
                 logger.error(f"Error loading paper trading data: {str(e)}")
@@ -51,7 +70,10 @@ class PaperTrader:
                 'virtual_balance': self.virtual_balance,
                 'positions': self.positions,
                 'trade_history': self.trade_history,
-                'started_at': self.started_at
+                'started_at': self.started_at,
+                'trading_parameters': self.trading_parameters,
+                'paused': self.paused,
+                'auto_execution': self.auto_execution
             }
             with open(self.paper_trading_file, 'w') as f:
                 json.dump(data, f, indent=2)
@@ -67,6 +89,15 @@ class PaperTrader:
         self.started_at = time.time()
         self._save_data()
         logger.info(f"Paper trading account reset with ${initial_balance:.2f}")
+        return True
+    
+    def reset_stats(self):
+        """Reset trading statistics while keeping current positions and balance"""
+        # Keep positions and balance but reset history and start time
+        self.trade_history = []
+        self.started_at = time.time()
+        self._save_data()
+        logger.info("Paper trading statistics reset")
         return True
     
     def get_account_summary(self):
@@ -117,30 +148,57 @@ class PaperTrader:
         Returns:
             Dict with paper trade result information
         """
+        logger.info(f"PaperTrader.execute_paper_trade called for token: {token_address}")
+        logger.info(f"Trade params: {trade_params}")
+        logger.info(f"Bot state - paused: {self.paused}, auto_execution: {self.auto_execution}")
+        
+        # Check if bot is paused
+        if self.paused:
+            logger.info(f"Signal for {token_address} ignored: bot is paused")
+            return {
+                'success': False,
+                'error': 'Bot is paused. Enable auto-trading to execute this signal.'
+            }
+            
+        # Check if auto-execution is enabled
+        if not self.auto_execution:
+            logger.info(f"Signal for {token_address} ignored: auto-execution disabled")
+            return {
+                'success': False,
+                'error': 'Auto-execution is disabled. Enable it to automatically execute signals.'
+            }
+            
         trade_id = str(uuid.uuid4())
         
         try:
             # Extract trade parameters
-            position_size = trade_params.get('position_size', self.config.position_size_percent)
-            stop_loss = trade_params.get('stop_loss', self.config.initial_sl_percent)
+            position_size = trade_params.get('position_size', self.trading_parameters['position_size'])
+            stop_loss = trade_params.get('stop_loss', self.trading_parameters['initial_sl'])
+            
+            logger.info(f"Using position size: {position_size}%, stop loss: {stop_loss}%")
             
             # Parse take profit levels
             take_profit_levels = [20, 40, 100]  # Default values
-            if hasattr(self.config, 'take_profit_levels') and self.config.take_profit_levels:
+            take_profit_str = self.trading_parameters['take_profit_levels']
+            if take_profit_str:
                 try:
-                    take_profit_levels = [float(level) for level in self.config.take_profit_levels.split(',')]
-                except Exception:
-                    logger.warning(f"Could not parse take profit levels: {self.config.take_profit_levels}")
+                    take_profit_levels = [float(level) for level in take_profit_str.split(',')]
+                    logger.info(f"Using take profit levels: {take_profit_levels}")
+                except Exception as e:
+                    logger.warning(f"Could not parse take profit levels: {take_profit_str}. Error: {str(e)}")
                     
             # Calculate simulated price and transaction details
             current_price = self._get_current_price(token_address)
+            logger.info(f"Current simulated price: {current_price}")
             
             # Calculate position size based on account balance and parameter
             trade_amount_usd = self.virtual_balance * (position_size / 100)
             token_amount = trade_amount_usd / current_price
             
+            logger.info(f"Calculated trade amount: ${trade_amount_usd:.2f}, token amount: {token_amount}")
+            
             # Simulate slippage
-            slippage = min(random.uniform(0.1, self.config.max_slippage), self.config.max_slippage) / 100
+            slippage = min(random.uniform(0.1, self.trading_parameters['max_slippage']), self.trading_parameters['max_slippage']) / 100
             execution_price = current_price * (1 + slippage)
             
             # Simulate fees
@@ -151,8 +209,12 @@ class PaperTrader:
             actual_trade_amount = trade_amount_usd - fee_amount
             actual_token_amount = actual_trade_amount / execution_price
             
+            logger.info(f"After slippage ({slippage*100:.2f}%) and fees (${fee_amount:.2f}):")
+            logger.info(f"Execution price: {execution_price}, actual token amount: {actual_token_amount}")
+            
             # Check if we have enough balance
             if trade_amount_usd > self.virtual_balance:
+                logger.warning(f"Insufficient balance: Required ${trade_amount_usd:.2f}, Available ${self.virtual_balance:.2f}")
                 return {
                     'success': False,
                     'error': f"Insufficient virtual balance. Required: ${trade_amount_usd:.2f}, Available: ${self.virtual_balance:.2f}"
@@ -206,11 +268,12 @@ class PaperTrader:
             # Start monitoring this position
             # In a real implementation, we would start a background task here
             
-            logger.info(f"Paper trade executed: {symbol} for ${actual_trade_amount:.2f}")
+            logger.info(f"Paper trade successfully executed: {symbol} for ${actual_trade_amount:.2f}")
             return result
             
         except Exception as e:
             logger.error(f"Error executing paper trade: {str(e)}")
+            logger.error(traceback.format_exc())  # Log full stack trace for debugging
             return {
                 'success': False,
                 'error': str(e)
@@ -244,7 +307,7 @@ class PaperTrader:
                 current_price = self._get_current_price(position['token_address'])
             
             # Simulate slippage
-            slippage = min(random.uniform(0.1, self.config.max_slippage), self.config.max_slippage) / 100
+            slippage = min(random.uniform(0.1, self.trading_parameters['max_slippage']), self.trading_parameters['max_slippage']) / 100
             execution_price = current_price * (1 - slippage)  # Negative slippage for selling
             
             # Calculate value
@@ -378,6 +441,47 @@ class PaperTrader:
             'limit': limit
         }
     
+    def get_trading_parameters(self):
+        """Get current trading parameters"""
+        return self.trading_parameters
+    
+    def update_trading_parameters(self, params):
+        """Update trading parameters"""
+        for key, value in params.items():
+            if key in self.trading_parameters:
+                self.trading_parameters[key] = value
+        
+        # Update config as well for persistence
+        if hasattr(self.config, 'position_size_percent'):
+            self.config.position_size_percent = self.trading_parameters['position_size']
+        if hasattr(self.config, 'initial_sl_percent'):
+            self.config.initial_sl_percent = self.trading_parameters['initial_sl']
+        if hasattr(self.config, 'trail_percent'):
+            self.config.trail_percent = self.trading_parameters['trail_percent']
+        if hasattr(self.config, 'take_profit_levels'):
+            self.config.take_profit_levels = self.trading_parameters['take_profit_levels']
+        if hasattr(self.config, 'max_slippage'):
+            self.config.max_slippage = self.trading_parameters['max_slippage']
+            
+        # Save data
+        self._save_data()
+        
+        logger.info("Trading parameters updated")
+        return True
+    
+    def set_trading_mode(self, paused=None, auto_execution=None):
+        """Update trading mode settings"""
+        if paused is not None:
+            self.paused = paused
+        if auto_execution is not None:
+            self.auto_execution = auto_execution
+            
+        # Save data
+        self._save_data()
+        
+        logger.info(f"Trading mode updated: paused={self.paused}, auto_execution={self.auto_execution}")
+        return True
+    
     def _get_current_price(self, token_address):
         """
         Get simulated current price for a token
@@ -385,38 +489,56 @@ class PaperTrader:
         This is a simplified simulation for paper trading
         In a real implementation, this would get actual prices from an API
         """
-        # For demonstration purposes, we generate a price based on the token address
-        # In a real implementation, this would call an API to get the current price
-        
-        # Seed based on token address to get a consistent base price
-        price_seed = int(token_address[-8:], 16) / 10**10
-        base_price = max(0.000001, price_seed)  # Ensure price is positive
-        
-        # Add some random fluctuation
-        fluctuation = random.uniform(-0.05, 0.05)  # -5% to +5%
-        
-        # Check if we need to simulate price increases or crashes for demo purposes
-        time_based_trend = 0
-        current_hour = time.localtime().tm_hour
-        if current_hour % 4 == 0:  # Every 4 hours, simulate a pump
-            time_based_trend = random.uniform(0.05, 0.15)  # +5% to +15%
-        elif current_hour % 6 == 0:  # Every 6 hours, simulate a dump
-            time_based_trend = random.uniform(-0.15, -0.05)  # -15% to -5%
-        
-        # Calculate final price
-        current_price = base_price * (1 + fluctuation + time_based_trend)
-        
-        return current_price
+        try:
+            # For demonstration purposes, we generate a price based on the token address
+            # In a real implementation, this would call an API to get the current price
+            
+            # Seed based on token address to get a consistent base price
+            price_seed = int(token_address[-8:], 16) / 10**10 if token_address else 0.0001
+            base_price = max(0.000001, price_seed)  # Ensure price is positive
+            
+            # Add some random fluctuation
+            fluctuation = random.uniform(-0.05, 0.05)  # -5% to +5%
+            
+            # Check if we need to simulate price increases or crashes for demo purposes
+            time_based_trend = 0
+            current_hour = time.localtime().tm_hour
+            if current_hour % 4 == 0:  # Every 4 hours, simulate a pump
+                time_based_trend = random.uniform(0.05, 0.15)  # +5% to +15%
+            elif current_hour % 6 == 0:  # Every 6 hours, simulate a dump
+                time_based_trend = random.uniform(-0.15, -0.05)  # -15% to -5%
+            
+            # Calculate final price
+            current_price = base_price * (1 + fluctuation + time_based_trend)
+            
+            return current_price
+        except Exception as e:
+            logger.error(f"Error generating price for {token_address}: {str(e)}")
+            return 0.0001  # Return a default price on error
     
     def _get_token_name(self, token_address):
         """Get a token name for display purposes"""
-        # In a real implementation, this would look up the actual token name
-        # For simulation, we generate a name based on the address
-        prefix = "".join([chr(ord('A') + int(c, 16) % 26) for c in token_address[:4] if c.isalnum()])
-        return f"{prefix} Token"
+        try:
+            # In a real implementation, this would look up the actual token name
+            # For simulation, we generate a name based on the address
+            if not token_address:
+                return "Unknown Token"
+                
+            prefix = "".join([chr(ord('A') + int(c, 16) % 26) for c in token_address[:4] if c.isalnum()])
+            return f"{prefix} Token"
+        except Exception as e:
+            logger.error(f"Error generating token name: {str(e)}")
+            return "Unknown Token"
     
     def _get_token_symbol(self, token_address):
         """Get a token symbol for display purposes"""
-        # In a real implementation, this would look up the actual token symbol
-        # For simulation, we generate a symbol based on the address
-        return "".join([chr(ord('A') + int(c, 16) % 26) for c in token_address[:3] if c.isalnum()])
+        try:
+            # In a real implementation, this would look up the actual token symbol
+            # For simulation, we generate a symbol based on the address
+            if not token_address:
+                return "UNK"
+                
+            return "".join([chr(ord('A') + int(c, 16) % 26) for c in token_address[:3] if c.isalnum()])
+        except Exception as e:
+            logger.error(f"Error generating token symbol: {str(e)}")
+            return "UNK"

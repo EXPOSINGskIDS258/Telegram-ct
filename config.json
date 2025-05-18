@@ -1,0 +1,25 @@
+{
+    "api_id": 20845027,
+    "api_hash": "e064a16de7d7f066dbadd9aa9ea4460f",
+    "phone": "+19295259432",
+    "source_channels": [
+        "-1002209371269",
+        "-1002277274250"
+    ],
+    "destination_channel": null,
+    "custom_branding": "Stratos Signal",
+    "initial_sl_percent": 30.0,
+    "trail_percent": 5.0,
+    "delay_seconds": 0,
+    "wallet_address": null,
+    "dex_name": "PancakeSwap",
+    "chain_name": "BSC",
+    "position_size_percent": 3.0,
+    "max_slippage": 15.0,
+    "gas_priority": 3,
+    "take_profit_levels": "50,100,150",
+    "min_liquidity_usd": 500.0,
+    "max_buy_tax": 10.0,
+    "max_sell_tax": 15.0,
+    "honeypot_check": true
+}

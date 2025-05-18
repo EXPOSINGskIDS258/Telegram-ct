@@ -1,11 +1,14 @@
 """
-Utility functions for the Copy Trading Bot
+Utility functions for the Stratos Trading Bot
 """
 
 import logging
 import os
 import json
 import re
+import subprocess
+import platform
+import sys
 from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
@@ -200,3 +203,62 @@ def generate_status_report(bot, stats=None):
                     ])
     
     return "\n".join(report)
+
+def open_env_file(env_file='.env'):
+    """
+    Open the .env file in the system's default text editor
+    """
+    try:
+        # Create .env file with template if it doesn't exist
+        if not os.path.exists(env_file):
+            with open(env_file, 'w') as f:
+                f.write("""# Stratos Trading Bot Configuration
+# You can edit this file directly to change settings
+
+# Telegram API Configuration
+TELEGRAM_API_ID=
+TELEGRAM_API_HASH=
+TELEGRAM_PHONE=
+
+# Channel Configuration
+# Comma-separated list of channel IDs to monitor
+SOURCE_CHANNELS=
+
+# Trading Parameters
+POSITION_SIZE_PERCENT=3
+INITIAL_SL_PERCENT=30
+TRAIL_PERCENT=5
+TAKE_PROFIT_LEVELS=20,40,100
+MAX_SLIPPAGE=15
+GAS_PRIORITY=3
+
+# DEX Settings
+DEX_NAME=PancakeSwap
+CHAIN_NAME=BSC
+
+# Wallet Address (private key is never stored here for security)
+WALLET_ADDRESS=
+
+# Paper Trading Mode (true/false)
+PAPER_TRADING_MODE=true
+
+# Memecoin Safety Settings
+MIN_LIQUIDITY_USD=50000
+MAX_BUY_TAX=10
+MAX_SELL_TAX=15
+HONEYPOT_CHECK=true
+""")
+            
+        # Open the file with system's default application
+        if platform.system() == 'Windows':
+            os.startfile(os.path.abspath(env_file))
+        elif platform.system() == 'Darwin':  # macOS
+            subprocess.run(['open', env_file], check=True)
+        else:  # Linux and other systems
+            subprocess.run(['xdg-open', env_file], check=True)
+            
+        logger.info(f"Opened .env file with system editor: {env_file}")
+        return True
+    except Exception as e:
+        logger.error(f"Error opening .env file: {str(e)}")
+        return False

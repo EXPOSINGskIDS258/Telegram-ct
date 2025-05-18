@@ -20,5 +20,8 @@ python-dotenv>=1.0.0  # For loading environment variables
 pandas>=1.5.0  # For data analysis
 numpy>=1.22.0  # For numerical operations
 
+# Security
+cryptography>=39.0.0  # For encryption/decryption
+
 # For decimal arithmetic with high precision
 mpmath>=1.3.0

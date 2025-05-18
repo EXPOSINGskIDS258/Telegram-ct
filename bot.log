@@ -4,3 +4,79 @@
 2025-05-17 21:47:35,926 - config - INFO - No config file found. Using default values.
 2025-05-17 22:06:54,990 - config - INFO - No config file found. Using default values.
 2025-05-17 22:48:54,382 - __main__ - ERROR - Fatal error: could not convert string to float: '5,000'
+2025-05-17 23:05:57,783 - __main__ - WARNING - Error parsing float value '.25%': could not convert string to float: '.25%'
+2025-05-17 23:10:12,533 - config - INFO - No config file found. Using default values.
+2025-05-17 23:10:12,543 - config - INFO - Configuration saved successfully
+2025-05-17 23:10:12,544 - paper_trader - INFO - Saved paper trading data - Balance: $1000.00
+2025-05-17 23:10:12,544 - paper_trader - INFO - Paper trading account reset with $1000.00
+2025-05-17 23:19:41,142 - config - INFO - Configuration loaded successfully
+2025-05-17 23:19:41,143 - config - INFO - Configuration saved successfully
+2025-05-17 23:19:41,148 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:32:17,115 - config - INFO - Created new .env file
+2025-05-17 23:32:17,116 - config - INFO - Environment configuration loaded successfully
+2025-05-17 23:32:17,122 - config - INFO - Configuration file loaded successfully
+2025-05-17 23:32:34,374 - telegram_client - INFO - Initialized in LIVE TRADING mode
+2025-05-17 23:32:34,374 - telethon.network.mtprotosender - INFO - Connecting to 149.154.167.51:443/TcpFull...
+2025-05-17 23:32:36,046 - telethon.network.mtprotosender - INFO - Connection to 149.154.167.51:443/TcpFull complete!
+2025-05-17 23:32:36,536 - telethon.client.users - INFO - Phone migrated to 1
+2025-05-17 23:32:36,633 - telethon.client.telegrambaseclient - INFO - Reconnecting to new data center 1
+2025-05-17 23:32:36,746 - telethon.network.mtprotosender - INFO - Disconnecting from 149.154.167.51:443/TcpFull...
+2025-05-17 23:32:36,747 - telethon.network.mtprotosender - INFO - Disconnection from 149.154.167.51:443/TcpFull complete!
+2025-05-17 23:32:36,747 - telethon.network.mtprotosender - INFO - Connecting to 149.154.175.60:443/TcpFull...
+2025-05-17 23:32:38,115 - telethon.network.mtprotosender - INFO - Connection to 149.154.175.60:443/TcpFull complete!
+2025-05-17 23:32:46,148 - telegram_client - INFO - Telegram client started
+2025-05-17 23:32:46,148 - trader - INFO - Initializing connection to PancakeSwap
+2025-05-17 23:32:46,148 - trader - INFO - Simulating BSC/PancakeSwap connection
+2025-05-17 23:32:47,663 - trader - INFO - Successfully connected to exchange
+2025-05-17 23:32:47,729 - telegram_client - INFO - Bot is now running and monitoring channels
+2025-05-17 23:33:21,734 - config - INFO - Environment configuration loaded successfully
+2025-05-17 23:33:21,735 - config - INFO - Configuration file loaded successfully
+2025-05-17 23:33:41,404 - telegram_client - INFO - Initialized in LIVE TRADING mode
+2025-05-17 23:33:41,404 - telethon.network.mtprotosender - INFO - Connecting to 149.154.175.60:443/TcpFull...
+2025-05-17 23:33:41,452 - telethon.network.mtprotosender - INFO - Connection to 149.154.175.60:443/TcpFull complete!
+2025-05-17 23:33:41,788 - telegram_client - INFO - Telegram client started
+2025-05-17 23:33:41,788 - trader - INFO - Initializing connection to PancakeSwap
+2025-05-17 23:33:41,788 - trader - INFO - Simulating BSC/PancakeSwap connection
+2025-05-17 23:33:43,306 - trader - INFO - Successfully connected to exchange
+2025-05-17 23:33:43,379 - telegram_client - INFO - Bot is now running and monitoring channels
+2025-05-17 23:36:41,033 - asyncio - ERROR - Task exception was never retrieved
+future: <Task finished name='Task-8' coro=<UpdateMethods._dispatch_update() done, defined at C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\client\updates.py:521> exception=ValueError('Cannot find any entity corresponding to "-1002209371269"')>
+Traceback (most recent call last):
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\client\updates.py", line 561, in _dispatch_update
+    await builder.resolve(self)
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\events\common.py", line 99, in resolve
+    await self._resolve(client)
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\events\newmessage.py", line 93, in _resolve
+    await super()._resolve(client)
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\events\common.py", line 103, in _resolve
+    self.chats = await _into_id_set(client, self.chats)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\events\common.py", line 33, in _into_id_set
+    chat = await client.get_input_entity(chat)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\client\users.py", line 445, in get_input_entity
+    await self._get_entity_from_string(peer))
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Rdhad\AppData\Local\Programs\Python\Python312\Lib\site-packages\telethon\client\users.py", line 582, in _get_entity_from_string
+    raise ValueError(
+ValueError: Cannot find any entity corresponding to "-1002209371269"
+2025-05-17 23:37:22,260 - telethon.network.mtprotosender - INFO - Disconnecting from 149.154.175.60:443/TcpFull...
+2025-05-17 23:37:22,261 - telethon.network.mtprotosender - INFO - Disconnection from 149.154.175.60:443/TcpFull complete!
+2025-05-17 23:37:22,876 - config - INFO - Environment configuration loaded successfully
+2025-05-17 23:37:22,876 - config - INFO - Configuration file loaded successfully
+2025-05-17 23:37:30,649 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:37:42,213 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:37:42,214 - telegram_client - INFO - Initialized in PAPER TRADING mode
+2025-05-17 23:42:21,226 - config - INFO - Environment configuration loaded successfully
+2025-05-17 23:42:21,227 - config - INFO - Configuration file loaded successfully
+2025-05-17 23:42:31,116 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:42:42,679 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:42:42,680 - telegram_client - INFO - Initialized in PAPER TRADING mode
+2025-05-17 23:50:05,275 - config - INFO - Environment configuration loaded successfully
+2025-05-17 23:50:05,275 - config - INFO - Configuration file loaded successfully
+2025-05-17 23:50:10,804 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:50:10,805 - paper_trader - INFO - PaperTrader initialized with balance: $1000.00
+2025-05-17 23:50:22,365 - telegram_client - INFO - Initializing in PAPER TRADING mode
+2025-05-17 23:50:22,365 - paper_trader - INFO - Loaded paper trading data - Balance: $1000.00
+2025-05-17 23:50:22,365 - paper_trader - INFO - PaperTrader initialized with balance: $1000.00
+2025-05-17 23:50:22,365 - telegram_client - INFO - Paper trader initialized: True
